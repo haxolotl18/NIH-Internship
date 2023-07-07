@@ -1,0 +1,123 @@
+---
+title: "Grun Analysis"
+author: "Andrew Liu"
+date: "2023-07-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(celldex) #Like Rolodex for cell datasets; all functions call datasets
+library(scRNAseq) #Single Cell RNA sequence datasets
+library(SingleR) #Use to bring in SingleR() function, which compares reference and test data for gene similarity
+library(scuttle) #logNormCounts function
+library(biomaRt)
+library(Seurat)
+```
+
+```{r}
+TS_panc <- readRDS(file = "TS_Pancreas.rds")
+TS_panc <- as.SingleCellExperiment(TS_panc)
+TS_panc <- logNormCounts(TS_panc)
+
+Grun_panc <- GrunPancreasData()
+
+Grun_panc <- Grun_panc[, colSums(counts(Grun_panc)) > 0]
+#Grun_panc <- Grun_panc[, !is.na(Grun_panc$label)]
+#Do not use. Grun_panc does not appear to have labels sorted in this way.
+Grun_panc <- logNormCounts(Grun_panc)
+
+rownames(Grun_panc) = gsub("_.*","",rownames(Grun_panc))
+#Remove chromosome attachments
+
+ensembl <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+listAttributes(ensembl)
+
+gene_ids <- getBM(attributes = c("ensembl_gene_id", "external_gene_name"),
+                  filters = "ensembl_gene_id",
+                  values = TS_panc@rowRanges@partitioning@NAMES,
+                  mart = ensembl)
+
+gene_e_ids <- gene_ids$ensembl_gene_id
+gene_id_names <- gene_ids$external_gene_name
+
+TS_e_ids <- TS_panc@rowRanges@partitioning@NAMES
+
+gene_id_to_name <- setNames(gene_id_names, gene_e_ids)
+
+matched_gene_names <- gene_id_to_name[TS_e_ids]
+TS_panc@rowRanges@partitioning@NAMES <- matched_gene_names
+
+pred.TS <- SingleR(test = Grun_panc,
+                   ref = TS_panc,
+                   assay.type.test = 1,
+                   labels = TS_panc$cell_ontology_class)
+table(pred.TS$labels)
+```
+
+```{r}
+plotScoreHeatmap(pred.TS)
+plotDeltaDistribution(pred.TS, ncol = 3)
+summary(is.na(pred.TS$pruned.labels))
+```
+
+```{r}
+grun.seurat <- GrunPancreasData()
+grun.seurat <- grun.seurat[, colSums(counts(grun.seurat)) > 0]
+
+grun.seurat <- logNormCounts(grun.seurat)
+
+grun.seurat@rowRanges@partitioning@NAMES <- make.unique(rownames(grun.seurat))
+
+grun.seurat <- as.Seurat(grun.seurat, counts = "counts", data = NULL)
+grun.seurat <- NormalizeData(grun.seurat)
+DefaultAssay(grun.seurat) <- "endogenous"
+#Currently, muraro.seurat shows both endogenous data and ERCC data.
+```
+
+```{r}
+saveRDS(pred.TS, "tabulaSapiens_grun.rds")
+#muraro.seurat[["TabulaSapiensPrediction"]] = pred.TS$pruned.labels
+
+tabulaSapiens = vector(length = ncol(grun.seurat))
+names(tabulaSapiens) = colnames(grun.seurat)
+tabulaSapiens[rownames(pred.TS)] = pred.TS[rownames(pred.TS), "pruned.labels"]
+#We define the tabulaSapiens vector as having column names taken from muraro.seurat. We then index tabulaSapiens, and for each colnames (from muraro.seurat) that matches up with a rowname from the TS prediction, we assign the pruned.label value to that index in the vector. We end up with a table full of different cell types (labels).
+table(tabulaSapiens)
+grun.seurat[["TabulaSapiensPrediction"]] = tabulaSapiens
+#We then assign the tabulaSapiens vector into the TabulaSapiensPrediction column.
+table(grun.seurat$TabulaSapiensPrediction, grun.seurat$label)
+#Compare predictions with actual labels.
+
+grun.seurat = ScaleData(grun.seurat)
+#Log transform, center, and scale data in one step for downstream analysis.
+grun.seurat = FindVariableFeatures(grun.seurat)
+#
+grun.seurat = RunPCA(grun.seurat, npcs=50)
+
+grun.seurat = FindNeighbors(grun.seurat, dims=1:20)
+
+grun.seurat = RunUMAP(grun.seurat,dims=1:20)
+
+scatter1 <- DimPlot(grun.seurat, group.by = "TabulaSapiensPrediction", reduction = "umap", label = TRUE, label.size = 2)
+scatter2 <- DimPlot(grun.seurat, group.by = "label", reduction = "umap", label = TRUE, label.size = 2)
+
+scatter1 + scatter2
+scatter1
+scatter2
+#muraro.seurat[["percent.mt"]] <- PercentageFeatureSet(muraro.seurat, pattern = "^MT-")
+#grep("^MT-",rownames(muraro.seurat),value=T)
+
+#{muraro.seurat[["percent.mt"]] <- PercentageFeatureSet(muraro.seurat, pattern = "^MT-")}
+
+#if(species=="hg38"){so[["percent.mt"]] <- PercentageFeatureSet(so, pattern = "^MT-")}
+#if(species="mm10"){so[["percent.mt"]] <- PercentageFeatureSet(so, pattern = "^mt-")}
+
+#head(muraro.seurat@meta.data, 50)
+#VlnPlot(muraro.seurat, features = c("nFeature_endogenous", "nCount_endogenous", "percent.mt"), ncol = 3)
+```
