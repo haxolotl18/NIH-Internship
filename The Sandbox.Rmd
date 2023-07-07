@@ -1,0 +1,86 @@
+---
+title: "The Sandbox"
+author: "Andrew Liu"
+date: "2023-06-08"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(celldex) #Like Rolodex for cell datasets; all functions call datasets
+library(scRNAseq) #Single Cell RNA sequence datasets
+library(SingleR) #Use to bring in SingleR() function, which compares reference and test data for gene similarity
+hpca.se <- HumanPrimaryCellAtlasData() #Defined reference data
+hESCs <- LaMannoBrainData("human-es") #human Epithelial Stem Cells; new test data to be analyzed
+hESCs <- hESCs[, 1:100] #Just work with first 100 cells for now
+pred.hesc <- SingleR(test = hESCs,
+                     ref = hpca.se,
+                     assay.type.test = 1,
+                     labels = hpca.se$label.main) #Identify marker genes using Spearman's correlation (similar to Pearson's); similarity generated are only predictions because of the complexity of gene expression. Upstream and downstream effects may impact gene expression, so the values here are estimates of possibilities
+#There are three types of prediction results for cell types:
+#first.labels: labels before fine-tuning
+#labels: labels after fine-tuning
+#pruned.labels: labels after removing weights and extremely specific information
+
+table(pred.hesc$labels)
+```
+```{r}
+library(scRNAseq)
+library(scuttle) #has logNormCounts function
+sceM <- MuraroPancreasData() #reference data
+sceM <- sceM[,!is.na(sceM$label)] #Filter out any rows that are empty in the label column
+sceM <- logNormCounts(sceM) #normalize and log transform sceM data
+
+sceG <- GrunPancreasData() #test data
+sceG <- sceG[, colSums(counts(sceG)) > 0] #Filter out empty data
+sceG <- logNormCounts(sceG)
+pred.grun <- SingleR(test = sceG,
+                     ref = sceM,
+                   assay.type.test = 1,
+                     labels = sceM$label)
+table(pred.grun$labels)
+```
+
+```{r}
+plotScoreHeatmap(pred.grun)
+plotDeltaDistribution(pred.grun, ncol = 3)
+summary(is.na(pred.grun$pruned.labels))
+#Diagnostics:
+#1. One label should clearly have a higher score than the others, suggesting that that label is correct. This should be evident by color.
+#2. "Deltas": The difference between the score of a label and the median of all other labels. Higher deltas refer to more certain labels. pruneScores() removes ambiguous delta values; SingleR reports pruned scores automatically in the $pruned.labels field: low quality label assignments are given the NA value.
+```
+
+```{r}
+#Tabula sapiens/Tabula muris familiarity, begin processing for easy access in SingleCellExperiment structure (Step 3 in SingleR vignette)  
+
+#Start writing code to run SingleR testing of Tabula Muris/Sapiens datasets 
+
+#Likely using references from “scRNAseq” package 
+
+#Example run: Test Muraro pancreas data from “scRNAseq” package in R against Tabula Sapiens pancreas reference data. 
+library(scRNAseq)
+library(Seurat)
+sceM <- MuraroPancreasData()
+sceM <- sceM[, !is.na(sceM$label)]
+tabS <- read("/Users/liuat/Desktop/Internship/TS_Pancreas.h5ad")
+tabS <- tabS[, colSums(counts(tabS)) > 0]
+
+pred.tabS <- SingleR(test = sceM,
+                     ref = tabS,
+                     labels = tabS$label,
+                     de.method = "wilcox")
+
+```
+
+```{r}
+#library(scater)
+#library(loomR)
+library(Seurat)
+library(patchwork)
+test <- readRDS(file = "pbmc3k_final.rds")
+test2 <- load(file = "facs_Pancreas_seurat_tiss.Robj")
+```

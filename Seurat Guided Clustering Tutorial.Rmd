@@ -1,0 +1,157 @@
+---
+title: "Seurat Guided Clustering"
+author: "Andrew Liu"
+date: "2023-06-12"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(Seurat)
+library(patchwork)
+pbmc.data <- Read10X(data.dir = "/Users/liuat/Desktop/Internship/filtered_gene_bc_matrices/hg19")
+pbmc <- CreateSeuratObject(counts = pbmc.data, project = "pbmc3k", min.cells = 3, min.features = 200)
+#counts: takes in a matrix object w/ unnormalized data or an Assay derived object
+#project: user designated Project name of Seurat object
+#min.cells: exclude features if they are not present in at least X number of cells
+#min.features: exclude cells if they have less than X features
+
+#End Result: load pbmc.data into a Seurat object called pbmc3k to only include cells with at least 200 features, of which show up in at least 3 different cells
+
+pbmc.data[c("CD3D", "TCL1A", "MS4A1"), 1:30]
+#Output Guide: scRNAseq aims to quantify gene expression levels by capturing RNA, including the unique molecular identifier and the short transcript sequence. The main goal is to measure the relative quantity of RNA molecules across genes in a cell, so a sequence just needs to be long enough to identify a gene rather than length playing a significant indicator. The values in the matrix relate to the amount of gene expression independent of the length of the sequence.
+```
+
+```{r}
+#Quality Control (QC): Pre-QC readouts may not be representative of the data. Empty droplets (that did not pick up anything) and low quality cells will not have genes like expected. Doublets and multiplets are multiple cells that are mistakenly recognized as a single cell, resulting in a high value in a matrix rather than spread out across multiple cells. Mitochondrial contamination can also result in low quality reads.
+
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+#Make a new column showing the percentage of counts that come from mitochondrial genes
+head(pbmc@meta.data, 5)
+#nCount_RNA: total # of RNA molecules detected
+#nFeature_RNA: total unique genes detected (always less than nCount)
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+#Violin plot of the 3 columns
+scatter1 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "percent.mt")
+scatter2 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+scatter1 + scatter2
+#We find that: 1. Mitochondrial counts don't seem to change much; as nCount_RNA increases, MT counts are about the same; thus, percents tend to decrease
+#2. nCount_RNA is directly proportional to nFeature_RNA, which makes sense. The more total RNA counts, the more likely there are unique genes expressed and captured.
+pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+#Filter out data where the number of features per cell is between 200 and 2500 and that mitochondrial percentage is less than 5%.
+```
+
+```{r}
+pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
+#Normalizes pbmc data; all values used are default; same result as NormalizeData(pbmc)
+```
+
+```{r}
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+#Identify genes that have high variation in expression across cells
+top10 <- head(VariableFeatures(pbmc), 10)
+plot1 <- VariableFeaturePlot(pbmc)
+#Features rated as high variability are pulled and graphed into plot1
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+#Labels the 10 features with highest variability
+plot1 + plot2
+```
+
+```{r}
+all.genes <- rownames(pbmc)
+pbmc <- ScaleData(pbmc, features = all.genes)
+```
+
+```{r}
+#Run PCA - Principal Component Analysis, a technique that takes in high dimensional datasets and outputs a lower dimension dataset while aiming to reduce loss of variation and quality. PCA identifies principal components, or the directions that data tends to vary most. Benefits: reduce number of dimensions, help with visualization (2D or 3D is comprehensive for humans), view certain cell features, noise reduction, and important pre-processing step for subsequent analysis.
+
+pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
+#Appears to be 5 main principle components with several genes contributing to the positive or negative trends
+print(pbmc[["pca"]], dims = 1:5, nfeatures = 5)
+#Prints the PCA output which was added as a new column by the code above. This code calls for the first 5 rows, of which, pulling for the first 5 features.
+VizDimLoadings(pbmc, dims =  1:2, reduction = "pca")
+#Visualize which genes are associated with reduction components
+DimPlot(pbmc, reduction = "pca")
+#Visualize cells / data points in a low-dimension space (following conversion)
+DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
+#Make a heatmap of the sorted and normalized data. This line selects for 1 principle component (PC_1), the first 500 cells of the selected dimension, and attempts to choose data showing both positive and negative trends (balanced = TRUE).
+DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)
+#Above but with the first 15 principle components
+```
+
+```{r}
+pbmc <- JackStraw(pbmc, num.replicate = 100)
+#Permutes the data (reshuffles values)
+pbmc <- ScoreJackStraw(pbmc, dims = 1:20)
+#Calculates Z-scores for each of the principal components based on the JackStraw analysis
+JackStrawPlot(pbmc, dims = 1:15)
+#Graphs Jack Straw Plot for the first 15 principle components (PCs); significance is shown by the strength of a curve relative to a dotted line. We see that significance drops after 10-12 PCs.
+ElbowPlot(pbmc)
+#Makes an elbow plot, which graphs PCs against standard deviations. As significance drops, standard deviation drops too. The "elbow" is the threshold between significance.
+
+#There were three total methods used to consider the true dimensionality of a dataset.
+#1: Dimension Heatmap: exploring PCs for possible sources of heterogeneity
+#2: JackStrawPlot: statistical test based on a random null model; time consuming for large datasets; possibly does not return clear result
+#3: ElbowPlot: quick plot that uses eyeballing to make a conclusion
+
+#Certain genes are so rare that their low activity makes them hard to distinguish from background noise. Downstream analyses of larger sizes generally do not change much. A larger size is more representative than small sample sizes.
+```
+
+```{r}
+pbmc <- FindNeighbors(pbmc, dims = 1:10)
+#Forms a "neighbor graph" showing cell-to-cell similarities based on pairwise distance profiles between local cellular relationships. This makes a new column in the dataset called. It does not make a visual output but can be directly called upon by other graphing functions like DimPlot() or DimHeatmap() to visualize this further.
+pbmc <- FindClusters(pbmc, resolution = 0.5)
+#Same as above but for clusters, which sort based on a larger scale, looking at overall gene expression profiles rather than individual comparisons.
+head(Idents(pbmc), 5)
+#There appears to be 8 total clusters
+```
+
+``` {r}
+pbmc <- RunUMAP(pbmc, dims = 1:10)
+#UMAP takes high-dimensional data and scales it down to be graphed in a visible way
+DimPlot(pbmc, reduction = "umap")
+saveRDS(pbmc, file = "/Users/liuat/Desktop/Internshippbmc_tutorial.rds")
+```
+
+```{r}
+cluster2.markers <- FindMarkers(pbmc, ident.1 = 2, min.pct = 0.25)
+#Find all markers of cluster 2; can be done for all clusters with FindAllMarkers(); min.pct = the minimum percentage a feature must be detected at in either groups of cells
+head(cluster2.markers, n = 5)
+
+cluster5.markers <- FindMarkers(pbmc, ident.1 = 5, ident.2 = c(0, 3), min.pct = 0.25)
+#Find all markers distinguishing cluster 5 from clusters 0 to 3
+head(cluster5.markers, n = 5)
+
+pbmc.markers <- FindAllMarkers(pbmc, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+#Find all markers with positive values
+pbmc.markers %>%
+    group_by(cluster) %>%
+    slice_max(n = 2, order_by = avg_log2FC)
+#For each unique cluster, the top 2 rows with the highest values of the "avg_log2FC" variable is selected/displayed.
+
+cluster0.markers <- FindMarkers(pbmc, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+#The ROC test returns the classification power for any individual marker (from 0 to 1).
+VlnPlot(pbmc, features = c("MS4A1", "CD79A"))
+#Violin plot comparing MS4A1 and CD79A; width of violin shows density at an expression level
+VlnPlot(pbmc, features = c("NKG7", "PF4"), slot = "counts", log = TRUE)
+#Violin plot showing comparing NKG7 and PF4; graphing by counts instead
+FeaturePlot(pbmc, features = c("MS4A1", "GNLY", "CD3E", "CD14", "FCER1A", "FCGR3A", "LYZ", "PPBP",
+    "CD8A"))
+#Feature plot of listed features, which are scatter plots showing densities of expression
+pbmc.markers %>%
+    group_by(cluster) %>%
+    top_n(n = 10, wt = avg_log2FC) -> top10
+DoHeatmap(pbmc, features = top10$gene) + NoLegend()
+#Make expression heatmap for given cells and features
+```
+
+```{r}
+new.cluster.ids <- c("Naive CD4 T", "CD14+ Mono", "Memory CD4 T", "B", "CD8 T", "FCGR3A+ Mono",
+    "NK", "DC", "Platelet")
+names(new.cluster.ids) <- levels(pbmc)
+pbmc <- RenameIdents(pbmc, new.cluster.ids)
+DimPlot(pbmc, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+#Assign cell identity to test clusters
+saveRDS(pbmc, file = "../output/pbmc3k_final.rds")
+#Save generated graph
+```
