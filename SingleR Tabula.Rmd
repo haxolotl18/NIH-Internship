@@ -17,12 +17,17 @@ library(scRNAseq) #Single Cell RNA sequence datasets
 library(SingleR) #Use to bring in SingleR() function, which compares reference and test data for gene similarity
 library(scuttle) #logNormCounts function
 library(biomaRt)
+library(zellkonverter)
 ```
 
 ```{r}
-TS_panc <- readRDS(file = "TS_Pancreas.rds")
+ts_test <- readH5AD("TS_Pancreas.h5ad")
+
+#TS_panc <- readRDS(file = "TS_Pancreas.rds")
 #TS_panc <- UpdateSeuratObject(TM_panc)
-TS_panc <- as.SingleCellExperiment(TS_panc)
+#TS_panc <- as.SingleCellExperiment(TS_panc)
+assays(ts_test)["counts"] <- assays(ts_test)["raw_counts"]
+TS_panc <- ts_test
 TS_panc <- logNormCounts(TS_panc)
 
 Mur_panc <- MuraroPancreasData()
@@ -57,7 +62,7 @@ TS_panc@rowRanges@partitioning@NAMES <- matched_gene_names
 #TM_panc@rowRanges@partitioning@NAMES <- TM_panc@rowRanges@partitioning@NAMES %>%
  # group_by()
 
-pred.TS <- SingleR(test = Mur_panc,
+pred.TS.Mur <- SingleR(test = Mur_panc,
                    ref = TS_panc,
                    assay.type.test = 1,
                    labels = TS_panc$cell_ontology_class)
@@ -68,7 +73,7 @@ table(pred.TS$labels)
 #Ensemble IDs: identifiers from the comprehensive ensembl dataset (like a social security number for genes)
 ```
 ```{r}
-plotScoreHeatmap(pred.TS)
+plotScoreHeatmap(pred.TS) 
 plotDeltaDistribution(pred.TS, ncol = 3)
 summary(is.na(pred.TS$pruned.labels))
 ```
@@ -109,12 +114,10 @@ muraro.seurat = FindNeighbors(muraro.seurat, dims=1:20)
 
 muraro.seurat = RunUMAP(muraro.seurat,dims=1:20)
 
-scatter1 <- DimPlot(muraro.seurat, group.by = "TabulaSapiensPrediction", reduction = "umap", label = TRUE, label.size = 2)
-scatter2 <- DimPlot(muraro.seurat, group.by = "label", reduction = "umap", label = TRUE, label.size = 2)
+scatterMurTSPred <- DimPlot(muraro.seurat, group.by = "TabulaSapiensPrediction", reduction = "umap", label = TRUE, label.size = 2)
+scatterMurLab <- DimPlot(muraro.seurat, group.by = "label", reduction = "umap", label = TRUE, label.size = 2)
 
-scatter1 + scatter2
-scatter1
-scatter2
+scatterMurTSPred + scatterMurLab
 #muraro.seurat[["percent.mt"]] <- PercentageFeatureSet(muraro.seurat, pattern = "^MT-")
 #grep("^MT-",rownames(muraro.seurat),value=T)
 

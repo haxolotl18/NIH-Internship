@@ -1,0 +1,88 @@
+---
+title: "UniversalPipeline"
+author: "Andrew Liu"
+date: "2023-08-08"
+output: html_document
+#params:
+#  arg1: "TS_Pancreas.rds"
+#  arg2: NULL
+#  arg3: NULL
+#  arg4: NULL
+---
+```{r}
+library(markdown)
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(celldex) #Like Rolodex for cell datasets; all functions call datasets
+library(scRNAseq) #Single Cell RNA sequence datasets
+library(SingleR) #Use to bring in SingleR() function, which compares reference and test data for gene similarity
+library(scuttle) #logNormCounts function
+library(biomaRt)
+library(SingleCellExperiment)
+```
+
+
+```{r setup, include=FALSE}
+#refFile <- readRDS(params$arg1)
+#location <- params$arg2
+#testFile <- params$arg3
+#species <- params$arg4
+```
+
+```{r}
+if (species == "human") {
+  if (length(grep("GAPDH", rownames(refFile))) == 0) {
+  print("Your reference file does not seem to be from human data.")
+  }
+  else if (length(grep("GAPDH", rownames(testFile))) == 0) {
+    print("Your test file does not seem to be from human data.")
+  }
+}
+if (species == "mouse") {
+  if (length(grep("GAPDH", rownames(refFile))) > 0) {
+    print("Your reference file does not seem to be from mouse data.")
+  }
+  else if (length(grep("GAPDH", rownames(testFile))) > 0) {
+    print("Your test file does not seem to be from mouse data.")
+  }
+}
+
+pred <- SingleR(test = testFile,
+                ref = refFile,
+                assay.type.test = 1,
+                labels = refFile$cell_ontology_class)
+table(pred$labels)
+```
+
+```{r}
+user_input <- commandArgs(trailingOnly = TRUE)
+refFile = as.character(args[1])
+#refFile should always come in as an .rds file, extension not needed
+#extension = as.character(args[])
+#Currently don't need extension; every reference file should enter as an rds file
+location = as.character(args[2])
+#scRNQseq or external
+testFile = as.character(args[3])
+species = as.character(args[4])
+
+refFile <- readRDS(file = refFile)
+
+if (location == "external") {
+  file_extension <- sub(".*\\.(.*)$", "\\1", testFile)
+  if (file_extension == "rds") {
+    print (file_extension)
+    testFile <- readRDS(file = testFile)
+  } else if (file_extension == "Robj") {
+    print (file_extension)
+    testFile <- load(testFile)
+    testFile <- UpdateSeuratObject(tiss)
+  }
+}
+
+rmarkdown::render("SingleR.Rmd")
+#Run SingleR.Rmd (as in Rmd which runs SingleR comparison)
+```

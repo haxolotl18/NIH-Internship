@@ -1,0 +1,112 @@
+---
+title: "Wu Mouse Kidney Analysis"
+author: "Andrew Liu"
+date: "2023-07-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(patchwork)
+library(tidyverse)
+library(readr)
+library(ggplot2)
+#library(celldex) #Like Rolodex for cell datasets; all functions call datasets
+library(scRNAseq) #Single Cell RNA sequence datasets
+library(SingleR) #Use to bring in SingleR() function, which compares reference and test data for gene similarity
+library(scuttle) #logNormCounts function
+library(biomaRt)
+library(Seurat)
+```
+
+```{r}
+#TM_kid <- load("TM_Kidney.Robj")
+TM_kid_drop <- load ("TM_Kidney_droplet.Robj")
+#Comes in as version 2.2.1
+#TM_kid2<- load("Drop_TM_Kidney.Robj")
+#devtools::install_version(package = 'Seurat', version = package_version('2.3.4'))
+TM_kid <- UpdateSeuratObject(tiss)
+TM_kid <- as.SingleCellExperiment(TM_kid)
+TM_kid <- logNormCounts(TM_kid)
+
+Wu_kid <- WuKidneyData()
+Wu_kid <- Wu_kid[, colSums(counts(Wu_kid)) > 0]
+Wu_kid <- logNormCounts(Wu_kid)
+
+rownames(Wu_kid) = gsub("_.*","",rownames(Wu_kid))
+
+mouse_ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+listAttributes(mouse_ensembl)
+
+gene_ids <- getBM(attributes = c("ensembl_gene_id", "external_gene_name"),
+                  filters = "ensembl_gene_id",
+                  values = TM_kid@rowRanges@partitioning@NAMES,
+                  mart = ensembl)
+
+gene_e_ids <- gene_ids$ensembl_gene_id
+gene_id_names <- gene_ids$external_gene_name
+
+TM_e_ids <- TM_kid@rowRanges@partitioning@NAMES
+
+gene_id_to_name <- setNames(gene_id_names, gene_e_ids)
+
+matched_gene_names <- gene_id_to_name[TS_e_ids]
+TM_kid@rowRanges@partitioning@NAMES <- matched_gene_names
+
+pred.TM.Wu <- SingleR(test = Wu_kid,
+                   ref = TM_kid,
+                   assay.type.test = 1,
+                   labels = TM_kid$cell_ontology_class)
+table(pred.TM.Wu$labels)
+```
+
+```{r}
+plotScoreHeatmap(pred.TM.Wu)
+plotDeltaDistribution(pred.TM.Wu, ncol = 3)
+summary(is.na(pred.TM.Wu$pruned.labels))
+```
+
+```{r}
+wu.seurat <- WuKidneyData()
+wu.seurat <- logNormCounts(wu.seurat)
+
+wu.seurat@rowRanges@partitioning@NAMES <- make.unique(rownames(wu.seurat))
+
+wu.seurat <- as.Seurat(wu.seurat, counts = "counts", data = NULL)
+wu.seurat <- NormalizeData(wu.seurat)
+#Wu data has no endogenous / ERCC / etc. discrepancy
+```
+
+```{r}
+saveRDS(pred.TM.Wu, "tabulamuris_wu.rds")
+
+tabM = vector(length = ncol(wu.seurat))
+names(tabM) = colnames(wu.seurat)
+tabM[rownames(pred.TM.Wu)] = pred.TM.Wu[rownames(pred.TM.Wu), "pruned.labels"]
+#We define the tabulaSapiens vector as having column names taken from muraro.seurat. We then index tabulaSapiens, and for each colnames (from muraro.seurat) that matches up with a rowname from the TS prediction, we assign the pruned.label value to that index in the vector. We end up with a table full of different cell types (labels).
+table(tabM)
+wu.seurat[["TabulaMurisPrediction"]] = tabM
+#We then assign the tabulaSapiens vector into the TabulaSapiensPrediction column.
+
+#table(wu.seurat$TabulaMurisPrediction, wu.seurat$sample)
+#Still problem here
+
+#Compare predictions with actual labels.
+
+wu.seurat = ScaleData(wu.seurat)
+#Log transform, center, and scale data in one step for downstream analysis.
+wu.seurat = FindVariableFeatures(wu.seurat)
+#
+wu.seurat = RunPCA(wu.seurat, npcs=50)
+
+wu.seurat = FindNeighbors(wu.seurat, dims=1:20)
+
+wu.seurat = RunUMAP(wu.seurat,dims=1:20)
+
+scatterTSWuPred <- DimPlot(wu.seurat, group.by = "TabulaMurisPrediction", reduction = "umap", label = TRUE, label.size = 2)
+scatterMurLab <- DimPlot(wu.seurat, group.by = "sample", reduction = "umap", label = TRUE, label.size = 2)
+
+scatterMurTSPred + scatterMurLab
+
+scatterTSWuPred
+```

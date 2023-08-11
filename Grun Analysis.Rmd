@@ -24,9 +24,16 @@ library(Seurat)
 TS_panc <- readRDS(file = "TS_Pancreas.rds")
 TS_panc <- as.SingleCellExperiment(TS_panc)
 TS_panc <- logNormCounts(TS_panc)
+#Enter normalized Tabula Sapiens pancreas data to compare with Grun.
+
+Mur_panc <- MuraroPancreasData()
+Mur_panc <- Mur_panc[, !is.na(Mur_panc$label)]
+#Mur_panc$label[which(is.na(Mur_panc))] <- "Unclassified"
+Mur_panc <- logNormCounts(Mur_panc)
+
+rownames(Mur_panc) = gsub("_.*","",rownames(Mur_panc))
 
 Grun_panc <- GrunPancreasData()
-
 Grun_panc <- Grun_panc[, colSums(counts(Grun_panc)) > 0]
 #Grun_panc <- Grun_panc[, !is.na(Grun_panc$label)]
 #Do not use. Grun_panc does not appear to have labels sorted in this way.
@@ -53,17 +60,22 @@ gene_id_to_name <- setNames(gene_id_names, gene_e_ids)
 matched_gene_names <- gene_id_to_name[TS_e_ids]
 TS_panc@rowRanges@partitioning@NAMES <- matched_gene_names
 
-pred.TS <- SingleR(test = Grun_panc,
+pred.TS.Grun <- SingleR(test = Grun_panc,
                    ref = TS_panc,
                    assay.type.test = 1,
                    labels = TS_panc$cell_ontology_class)
-table(pred.TS$labels)
+table(pred.TS.Grun$labels)
+
+pred.Mur.Grun <- SingleR(test = Grun_panc,
+                         ref = Mur_panc,
+                         assay.type.test = 1,
+                         labels = Mur_panc$label)
 ```
 
 ```{r}
-plotScoreHeatmap(pred.TS)
-plotDeltaDistribution(pred.TS, ncol = 3)
-summary(is.na(pred.TS$pruned.labels))
+plotScoreHeatmap(pred.TS.Grun)
+plotDeltaDistribution(pred.TS.Grun, ncol = 3)
+summary(is.na(pred.TS.Grun$pruned.labels))
 ```
 
 ```{r}
@@ -81,18 +93,25 @@ DefaultAssay(grun.seurat) <- "endogenous"
 ```
 
 ```{r}
-saveRDS(pred.TS, "tabulaSapiens_grun.rds")
+saveRDS(pred.TS.Grun, "tabulaSapiens_grun.rds")
 #muraro.seurat[["TabulaSapiensPrediction"]] = pred.TS$pruned.labels
 
 tabulaSapiens = vector(length = ncol(grun.seurat))
 names(tabulaSapiens) = colnames(grun.seurat)
-tabulaSapiens[rownames(pred.TS)] = pred.TS[rownames(pred.TS), "pruned.labels"]
+tabulaSapiens[rownames(pred.TS.Grun)] = pred.TS.Grun[rownames(pred.TS.Grun), "pruned.labels"]
 #We define the tabulaSapiens vector as having column names taken from muraro.seurat. We then index tabulaSapiens, and for each colnames (from muraro.seurat) that matches up with a rowname from the TS prediction, we assign the pruned.label value to that index in the vector. We end up with a table full of different cell types (labels).
 table(tabulaSapiens)
 grun.seurat[["TabulaSapiensPrediction"]] = tabulaSapiens
 #We then assign the tabulaSapiens vector into the TabulaSapiensPrediction column.
-table(grun.seurat$TabulaSapiensPrediction, grun.seurat$label)
+table(grun.seurat$TabulaSapiensPrediction, grun.seurat$sample)
 #Compare predictions with actual labels.
+
+Mur_Pred = vector(length = ncol(grun.seurat))
+names(Mur_Pred) = colnames(grun.seurat)
+Mur_Pred[rownames(pred.Mur.Grun)] = pred.Mur.Grun[rownames(pred.Mur.Grun), "pruned.labels"]
+
+table(Mur_Pred)
+grun.seurat[["MuraroPrediction"]] = Mur_Pred
 
 grun.seurat = ScaleData(grun.seurat)
 #Log transform, center, and scale data in one step for downstream analysis.
@@ -104,12 +123,29 @@ grun.seurat = FindNeighbors(grun.seurat, dims=1:20)
 
 grun.seurat = RunUMAP(grun.seurat,dims=1:20)
 
-scatter1 <- DimPlot(grun.seurat, group.by = "TabulaSapiensPrediction", reduction = "umap", label = TRUE, label.size = 2)
-scatter2 <- DimPlot(grun.seurat, group.by = "label", reduction = "umap", label = TRUE, label.size = 2)
+scatterGrunTSPred <- DimPlot(grun.seurat, group.by = "TabulaSapiensPrediction", reduction = "umap", label = TRUE, label.size = 2)
+#scatterGrunLabel <- DimPlot(grun.seurat, group.by = "label", reduction = "umap", label = TRUE, label.size = 2)
 
-scatter1 + scatter2
-scatter1
-scatter2
+scatterGrunTSPred
+
+scatterGrunMurPred <- DimPlot(grun.seurat, group.by = "MuraroPrediction", reduction = "umap", label = TRUE, label.size = 2)
+
+scatterGrunSample <- DimPlot(grun.seurat, group.by = "sample", reduction = "umap", label = TRUE, label.size = 2)
+
+scatterGrunMurPred
+
+scatterGrunSample
+
+scatterGrunTSPred + scatterGrunMurPred + scatterGrunSample
+
+beta <- DimPlot(grun.seurat[,which(grun.seurat$TabulaSapiensPrediction == "pancreatic beta cell")], group.by = "TabulaSapiensPrediction")
+
+delta <- DimPlot(grun.seurat[,which(grun.seurat$TabulaSapiensPrediction == "pancreatic delta cell")], group.by = "TabulaSapiensPrediction")
+
+delta
+beta
+
+beta + delta
 #muraro.seurat[["percent.mt"]] <- PercentageFeatureSet(muraro.seurat, pattern = "^MT-")
 #grep("^MT-",rownames(muraro.seurat),value=T)
 
