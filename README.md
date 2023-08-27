@@ -2,7 +2,7 @@
 
 # Please download any required files either in Tabula Muris or Tabula Sapiens.
 
-###Below is an account of my workweeks with the NIH.
+###Below is an account of my workweeks with the NIH. It is identical to the InternshipSummary.docx file in this repository.
 
 Late May – June 2nd
 •	Complete several accredited R courses on Dataquest
