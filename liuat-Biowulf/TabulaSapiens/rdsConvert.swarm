@@ -1,0 +1,53 @@
+Rscript SCEConvertSingle.R "TS_Bone_Marrow.h5ad" "TS_Bone_Marrow.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_endothelial.h5ad" "TS_endothelial.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_epithelial.h5ad" "TS_epithelial.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Eye.h5ad" "TS_Eye.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Fat.h5ad" "TS_Fat.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_germ_line.h5ad" "TS_germ_line.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Heart.h5ad" "TS_Heart.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_immune.h5ad" "TS_immune.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Kidney.h5ad" "TS_Kidney.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Large_Intestine.h5ad" "TS_Large_Intestine.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Liver.h5ad" "TS_Liver.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Lung.h5ad" "TS_Lung.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Lymph_Node.h5ad" "TS_Lymph_Node.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Mammary.h5ad" "TS_Mammary.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Muscle.h5ad" "TS_Muscle.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Pancreas.h5ad" "TS_Pancreas.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Prostate.h5ad" "TS_Prostate.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Salivary_Gland.h5ad" "TS_Salivary_Gland.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Skin.h5ad" "TS_Skin.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Small_Intestine.h5ad" "TS_Small_Intestine.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Spleen.h5ad" "TS_Spleen.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_stromal.h5ad" "TS_stromal.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Thymus.h5ad" "TS_Thymus.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Tongue.h5ad" "TS_Tongue.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Trachea.h5ad" "TS_Trachea.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Uterus.h5ad" "TS_Uterus.rds" "human"
+
+Rscript SCEConvertSingle.R "TS_Vasculature.h5ad" "TS_Vasculature.rds" "human"

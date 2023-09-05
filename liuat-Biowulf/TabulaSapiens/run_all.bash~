@@ -1,0 +1,5 @@
+#!/bin/bash
+
+module load R
+
+Rscript SingleR.R /home/liuat/data/TabulaSapiens/TS_Lung.rds external /home/liuat/data/TabulaSapiens/TS_Lung.rds human /home/liuat/data/TabulaSapiens /home/liuat/data/TabulaSapiens	
