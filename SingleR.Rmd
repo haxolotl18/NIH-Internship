@@ -3,14 +3,43 @@ title: "UniversalPipeline"
 author: "Andrew Liu"
 date: "2023-08-08"
 output: html_document
-#params:
-#  arg1: "TS_Pancreas.rds"
-#  arg2: NULL
-#  arg3: NULL
-#  arg4: NULL
+params:
+  refFile: "refFile.rds"
+  location: "internal / external"
+  testFile: "testFile.rds or testFile()"
+  species: "human"
+  tissue: "tissue"
+  imageDir: "path/to/images"
+  outputDir: "out/path"
+  output1: "output1"
+  output2: "output2"
+  outputName: "outputName"
 ---
+
 ```{r}
-library(markdown)
+#path = dirname("/gpfs/gsfs11/users/liuat/TabulaSapiens")
+#require("knitr")
+#knitr::opts_chunk$set(
+#	echo = FALSE,
+#	message = FALSE,
+#	warning = FALSE
+#)
+#knitr::opts_knit$set(
+#  root.dir=path
+#)
+
+#Directly problematic. Keeping this code makes the code crash in the chunk beginning at line 58
+message(getwd())
+```
+
+```{r, message = FALSE, warning = FALSE}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("biomaRt")
+```
+
+```{r, message = FALSE, warning = FALSE}
 library(dplyr)
 library(Seurat)
 library(patchwork)
@@ -26,63 +55,168 @@ library(SingleCellExperiment)
 ```
 
 
-```{r setup, include=FALSE}
-#refFile <- readRDS(params$arg1)
-#location <- params$arg2
-#testFile <- params$arg3
-#species <- params$arg4
+```{r}
+refFileName <- as.character(params$refFile)
+location <- as.character(params$location)
+testFile <- as.character(params$testFile)
+testFileName <- testFile
+testSeuratName <- testFile
+#testFile is the placeholder dataset name and later on, the name of the dataframe; testFileName will be that dataset as a function call if calling from internal and otherwise the name of the dataset.
+species <- as.character(params$species)
+tissue <- as.character(params$tissue)
+imageDirPath <- as.character(params$imageDir)
+output1 <- as.character(params$output1)
+output2 <- as.character(params$output2)
+outputName <- as.character(params$outputName)
+
+#refFileName <- "TS_Pancreas.rds"
+
+refFile <- readRDS(refFileName)
+#refFile <- as.SingleCellExperiment(refFile)
+refFile <- logNormCounts(refFile)
+
+if (location == "external") {
+  datasets <- scRNAseq::listDatasets()
+  testFileName <- paste0(testFile, "()")
+  if (testFileName %in% datasets@listData[["Call"]]) {
+    msg <- paste0("Internal dataset ", testFileName, " found.")
+    print(msg)
+    testFile <- do.call(testFile, args = list())
+    #do.call takes in the name of the fxn (without the parentheses).
+    #Fxn called datasets come in as SCE immediately. No need for SCE conversion.
+    index <- which(datasets@listData[["Call"]] == testFileName)
+    #Index used later to find useful info (taxonomy, tissue type)
+  } else {
+    print("Specified internal dataset not found. Please enter internal dataset fxn without () - ex: ZilionisLungData. Please check spelling, dataset presence, and try again.")
+  }
+} else if (location == "internal") {
+    testFile <- readRDS(testFileName)
+    testFile <- as.SingleCellExperiment(testFile)
+    #Reading .rds makes a Seurat obj. Convert to SCE.
+}
+
+#listDatasets() shows all datasets available from BioMart where the name of the fxn is in the "Call" column. However, to call a function from a string using do.call() requires that the () are not there. Then take the index of listDatasets dataframe to access taxonomy and tissue type.
+#Since the file is accessed externally, it can simply be read in by naming testFile as the filename w/ extension.
+testFile <- logNormCounts(testFile)
+rownames(testFile) = gsub("_.*","",rownames(testFile))
 ```
 
-```{r}
-if (species == "human") {
-  if (length(grep("GAPDH", rownames(refFile))) == 0) {
-  print("Your reference file does not seem to be from human data.")
-  }
-  else if (length(grep("GAPDH", rownames(testFile))) == 0) {
-    print("Your test file does not seem to be from human data.")
+```{r, message = FALSE, warning = FALSE}
+#Species Check
+#Taxonomy IDs: 8355 - Xenopus; 9606: Homo sapiens; 10090: Mus musculus
+#location <- "internal"
+#species <- "human"
+#species <- "mouse"
+#index <- 2
+#Index 2: mouse, Index 3: human
+if (location == "internal") {
+  if (species == "human" && datasets$Taxonomy[index] == 9606) {
+    print("Your input species and internal dataset are both human.")
+  } else if (species == "mouse" && datasets$Taxonomy[index] == 10090) {
+    print("Your input species and internal dataset are both mouse.")
+  } else {
+    print("Your input and internal dataset do not appear to match species.")
   }
 }
-if (species == "mouse") {
-  if (length(grep("GAPDH", rownames(refFile))) > 0) {
-    print("Your reference file does not seem to be from mouse data.")
-  }
-  else if (length(grep("GAPDH", rownames(testFile))) > 0) {
-    print("Your test file does not seem to be from mouse data.")
-  }
-}
+
+#if (location == "internal") {
+#  if (tissue == )
+#}
+
+#if (speciesName == "human") {
+#  if (length(grep("GAPDH", rownames(refFile))) == 0) {
+#  print("Your reference file does not seem to be from human data.")
+#  }
+#  else if (length(grep("GAPDH", rownames(testFile))) != 0) {
+#    print("Your test file does not seem to be from human data.")
+#  }
+#  else {
+#    print("Both your reference and test files seem to be formatted correctly.")
+#  }
+#}
+#if (species == "mouse") {
+#  if (length(grep("GAPDH", rownames(refFile))) > 0) {
+#    print("Your reference file does not seem to be from mouse data.")
+#  }
+#  else if (length(grep("GAPDH", rownames(testFile))) > 0) {
+#    print("Your test file does not seem to be from mouse data.")
+#  }
+#}
+
+#
 
 pred <- SingleR(test = testFile,
                 ref = refFile,
                 assay.type.test = 1,
                 labels = refFile$cell_ontology_class)
+# NEXT GOAL: get a feel of the possible locations that we might need to call in labels. For example, cell_ontology_class for Tabula references, label for BioMart references. Look into seeing if there's a "default" option that automatically selects cell_ontology_class.
 table(pred$labels)
+setwd(imageDir)
+png("ScoreHeatmap.png")
+plotScoreHeatmap(pred)
+png("DeltaDistribution.png")
+plotDeltaDistribution(pred, ncol = 3)
+summary(is.na(pred$pruned.labels))
+setwd(outputDir)
+```
+
+```{r, echo=TRUE, message = FALSE, warning = FALSE}
+if (location == "external") {
+  testSeurat <- do.call(testSeuratName, args = list())
+  print ("external testFile is a Seurat good")
+} else if (location == "internal") {
+    testFile <- readRDS(testFileName)
+    print("internal testFile is a Seurat good")
+    #Reading .rds makes a Seurat obj. Convert to SCE.
+}
+
+testSeurat@rowRanges@partitioning@NAMES <- make.unique(rownames(testSeurat))
+# NEXT GOAL: map out the possible places NAMES could be (ex: labels, sample, NAMES)
+
+testSeurat <- as.Seurat(testSeurat, counts = "counts", data = NULL)
+testSeurat <- NormalizeData(testSeurat)
+
+if (testSeuratName == "MuraroPancreasData") {
+  DefaultAssay(testSeurat) <- "endogenous"
+}
+```
+
+```{r, message = FALSE, warning = FALSE}
+tabula = vector(length = ncol(testSeurat))
+names(tabula) = colnames(testSeurat)
+tabula[rownames(pred)] = pred[rownames(pred), "pruned.labels"]
+#We define the tabulaSapiens vector as having column names taken from muraro.seurat. We then index tabulaSapiens, and for each colnames (from muraro.seurat) that matches up with a rowname from the TS prediction, we assign the pruned.label value to that index in the vector. We end up with a table full of different cell types (labels).
+table(tabula)
+testSeurat[["TabulaPrediction"]] = tabula
+#We then assign the tabulaSapiens vector into the TabulaSapiensPrediction column.
+table(testSeurat$TabulaPrediction, testSeurat$label)
+#Compare predictions with actual labels.
+
+testSeurat = ScaleData(testSeurat)
+#Log transform, center, and scale data in one step for downstream analysis.
+testSeurat = FindVariableFeatures(testSeurat)
+#
+testSeurat = RunPCA(testSeurat, npcs=50)
+
+testSeurat = FindNeighbors(testSeurat, dims=1:20)
+
+testSeurat = RunUMAP(testSeurat,dims=1:20)
+
+scatterTabPred <- DimPlot(testSeurat, group.by = "TabulaPrediction", reduction = "umap", label = TRUE, label.size = 2)
+scatterLab <- DimPlot(testSeurat, group.by = "label", reduction = "umap", label = TRUE, label.size = 2)
+
+scatterTabPred
+png(output1, width = 1400, height = 865, units = "px")
+scatterTabPred
 ```
 
 ```{r}
-user_input <- commandArgs(trailingOnly = TRUE)
-refFile = as.character(args[1])
-#refFile should always come in as an .rds file, extension not needed
-#extension = as.character(args[])
-#Currently don't need extension; every reference file should enter as an rds file
-location = as.character(args[2])
-#scRNQseq or external
-testFile = as.character(args[3])
-species = as.character(args[4])
-
-refFile <- readRDS(file = refFile)
-
-if (location == "external") {
-  file_extension <- sub(".*\\.(.*)$", "\\1", testFile)
-  if (file_extension == "rds") {
-    print (file_extension)
-    testFile <- readRDS(file = testFile)
-  } else if (file_extension == "Robj") {
-    print (file_extension)
-    testFile <- load(testFile)
-    testFile <- UpdateSeuratObject(tiss)
-  }
-}
-
-rmarkdown::render("SingleR.Rmd")
-#Run SingleR.Rmd (as in Rmd which runs SingleR comparison)
+scatterLab
+png(output2, width = 1400, height = 865, units = "px")
+scatterLab
+```
+```{r}
+scatterTabPred + scatterLab
+png(outputName)
+scatterTabPred + scatterLab
 ```
