@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_Vasculature.h5ad.zip && rm TS_Vasculature.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_Vasculature.h5ad.zip
+  inflating: TS_Vasculature.h5ad     

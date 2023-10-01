@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_stromal.h5ad.zip && rm TS_stromal.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_stromal.h5ad.zip
+  inflating: TS_stromal.h5ad         

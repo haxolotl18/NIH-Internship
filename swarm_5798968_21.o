@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_Thymus.h5ad.zip && rm TS_Thymus.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_Thymus.h5ad.zip
+  inflating: TS_Thymus.h5ad          
