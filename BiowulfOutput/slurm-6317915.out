@@ -1,0 +1,5 @@
+[INFO] Please allocate lscratch for batch/sinteractive R jobs
+character(0)
+Error in gzfile(file, "rb") : invalid 'description' argument
+Calls: readRDS -> gzfile
+Execution halted

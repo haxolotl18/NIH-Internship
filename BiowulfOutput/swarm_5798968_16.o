@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_Salivary_Gland.h5ad.zip && rm TS_Salivary_Gland.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_Salivary_Gland.h5ad.zip
+  inflating: TS_Salivary_Gland.h5ad  

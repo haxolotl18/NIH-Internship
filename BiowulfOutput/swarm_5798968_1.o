@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_epithelial.h5ad.zip && rm TS_epithelial.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_epithelial.h5ad.zip
+  inflating: TS_epithelial.h5ad      

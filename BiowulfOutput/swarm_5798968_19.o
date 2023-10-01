@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_Spleen.h5ad.zip && rm TS_Spleen.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_Spleen.h5ad.zip
+  inflating: TS_Spleen.h5ad          

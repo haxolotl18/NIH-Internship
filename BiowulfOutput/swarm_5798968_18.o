@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_Small_Intestine.h5ad.zip && rm TS_Small_Intestine.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_Small_Intestine.h5ad.zip
+  inflating: TS_Small_Intestine.h5ad  

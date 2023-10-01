@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_Fat.h5ad.zip && rm TS_Fat.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_Fat.h5ad.zip
+  inflating: TS_Fat.h5ad             

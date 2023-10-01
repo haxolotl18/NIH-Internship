@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_Prostate.h5ad.zip && rm TS_Prostate.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_Prostate.h5ad.zip
+  inflating: TS_Prostate.h5ad        

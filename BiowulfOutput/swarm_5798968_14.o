@@ -1,0 +1,5 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   unzip TS_Pancreas.h5ad.zip && rm TS_Pancreas.h5ad.zip )
+--------------------------------------------------------------------------------
+Archive:  TS_Pancreas.h5ad.zip
+  inflating: TS_Pancreas.h5ad        
