@@ -1,0 +1,3 @@
+---- COMMAND EXECUTED: ---------------------------------------------------------
+(   Rscript SCEConvertSingle.R "TS_Salivary_Gland.h5ad" "TS_Salivary_Gland.rds" "human" )
+--------------------------------------------------------------------------------
